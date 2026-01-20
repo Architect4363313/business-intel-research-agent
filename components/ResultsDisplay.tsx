@@ -1,25 +1,29 @@
-
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import type { BusinessProfile } from '../types';
 
-const ResultsDisplay: React.FC<{ profile: BusinessProfile, onNewSearch: () => void; }> = ({ profile, onNewSearch }) => {
+const ResultsDisplay: React.FC<{ profile: BusinessProfile; onNewSearch: () => void }> = ({ profile, onNewSearch }) => {
     const [emailCopied, setEmailCopied] = useState<{ [key: string]: boolean }>({});
-    
+    const [emailWorkflow, setEmailWorkflow] = useState({ generated: true, opened: false, sent: false });
+    const [templateVariant, setTemplateVariant] = useState('Cafetería alta rotación');
+    const [abVariant, setAbVariant] = useState<'A' | 'B'>('A');
+    const [hasLegalBasis, setHasLegalBasis] = useState(false);
+
     const strategicContacts = profile.strategicContacts || [];
     const suggestedEmails = profile.suggestedEmails || [];
     const socialMedia = profile.socialMedia || [];
-    
+
     const financialContact = strategicContacts.find(c => c.area === 'Finanzas') || strategicContacts[0];
-    const ownerName = financialContact ? financialContact.name.split(' ')[0] : "Propiedad";
-    
-    const honeiUrl = "https://www.honei.app/servicios/honei-terminal";
-    const emailSubject = `Optimización de cobros y TPV - Honei`;
-    
-    const emailBodyPlain = `Hola ${ownerName},
+    const ownerName = financialContact ? financialContact.name.split(' ')[0] : 'Propiedad';
+
+    const honeiUrl = 'https://www.honei.app/servicios/honei-terminal';
+    const emailSubjectPrimary = 'Optimización de cobros y TPV para hostelería';
+    const emailSubjectAlt = 'Reducir comisiones y descuadres en caja';
+
+    const emailBodyNormal = `Hola ${ownerName},
 
 Soy David Prado, de Honei (${honeiUrl}). He seguido vuestra trayectoria y me gustaría comentaros cómo estamos ayudando a otros grupos similares a optimizar su operativa de cobro.
 
-Trabajo con directivos financieros ayudándoles a eliminar descuadres de caja y reducir costes bancarios mediante la integración total del datáfono con el TPV (Honei Terminal).
+Trabajo con directivos financieros eliminando descuadres de caja y reduciendo costes bancarios mediante la integración total del datáfono con el TPV (Honei Terminal).
 
 Para vuestra operativa actual, ¿os ayudaría automatizar el cierre de mesas y el enrutamiento inteligente multibanco para ahorrar en comisiones?
 
@@ -28,6 +32,14 @@ Normalmente vemos un ahorro de hasta 250€/mes y unas 3 horas diarias de gesti�
 Si te parece interesante, ¿podríamos hablar 10 minutos esta semana?
 
 Un saludo,`;
+
+    const emailBodyShort = `Hola ${ownerName},
+
+Soy David de Honei. Ayudamos a restaurantes a reducir comisiones y descuadres con un datáfono integrado al TPV. Normalmente ahorran ~250€/mes y 3h/semana en cierres.
+
+¿Te encaja una llamada corta esta semana para ver si aplica en ${profile.businessName}?
+
+Gracias,`;
 
     const copyToClipboard = async (text: string, id: string) => {
         try {
@@ -39,39 +51,93 @@ Un saludo,`;
         }
     };
 
-    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${profile.directContacts?.email || (suggestedEmails[0]?.email || '')}&su=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(emailBodyPlain)}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${profile.directContacts?.email || (suggestedEmails[0]?.email || '')}&su=${encodeURIComponent(emailSubjectPrimary)}&body=${encodeURIComponent(emailBodyNormal)}`;
 
-    // Generación dinámica del enlace de Perplexity
-    const perplexityPrompt = `Actúa como analista de inteligencia comercial B2B. Necesito identificar al Director/a Financiero/a (CFO) de la empresa de hostelería en España: ${profile.businessName} (si es un grupo, incluye filiales y marca comercial).
+    const painSignals = (profile.painPoints || []).join(' ').toLowerCase();
+    const recommendedAngle = painSignals.includes('cola') || painSignals.includes('espera')
+        ? 'Velocidad en barra y reducción de esperas'
+        : painSignals.includes('caja') || painSignals.includes('descuadre')
+            ? 'Cierres automáticos y control de caja'
+            : painSignals.includes('propina')
+                ? 'Incremento de propinas y control de pagos'
+                : 'Ahorro en comisiones y conciliación bancaria';
 
-Devuélveme Nombre y apellidos, cargo exacto, empresa/filial, ciudad, y periodo (año inicio–fin si aparece).
+    const fitScore = profile.honeiAnalysis?.fitScore || 0;
+    const nextStepMessage = fitScore < 45
+        ? 'No invertir tiempo: prioriza otros leads o envía email ligero.'
+        : fitScore < 65
+            ? 'Enviar email corto y validar decisor antes de insistir.'
+            : 'Priorizar contacto multicanal con propuesta personalizada.';
 
-Aporta evidencia: incluye 3–6 enlaces y cita textualmente (frase corta) la parte que lo confirma. Prioriza:
-1. Web corporativa (equipo directivo, notas de prensa, memoria/informe anual).
-2. LinkedIn (perfil personal + página de empresa).
-3. BORME / registros mercantiles / comunicados oficiales si aplica.
+    const scoreFactors = useMemo(() => {
+        const volumeBoost = profile.estimatedVolume?.toLowerCase().includes('alto') ? 15 : profile.estimatedVolume?.toLowerCase().includes('medio') ? 8 : 0;
+        const volumeScore = Math.min(100, Math.round(fitScore * 0.7 + volumeBoost));
+        const complexityScore = Math.min(100, 50 + (profile.operationalInfo?.paymentMethods?.length || 1) * 10);
+        const painScore = Math.min(100, 40 + (profile.painPoints?.length || 0) * 10);
+        const digitalScore = Math.min(100, 30 + (profile.techStack?.length || 0) * 12);
 
-Si no hay una confirmación única, propone un top 3 de candidatos (con probabilidad alta/media/baja) y explica en 1 línea por qué. Si la empresa es privada, identifica el rol equivalente (Director de Administración y Finanzas, Finance Director, Head of Finance, Controller corporativo).
+        return [
+            { label: 'Volumen potencial', value: volumeScore, detail: 'reseñas, precio medio, categoría' },
+            { label: 'Complejidad operativa', value: complexityScore, detail: 'locales, terraza, ritmo' },
+            { label: 'Probabilidad de dolor', value: painScore, detail: 'colas, cobros, esperas' },
+            { label: 'Madurez digital', value: digitalScore, detail: 'web, TPV, RRSS' }
+        ];
+    }, [fitScore, profile.estimatedVolume, profile.operationalInfo?.paymentMethods, profile.painPoints, profile.techStack]);
 
-Al final, sugiere 5 consultas booleanas para seguir investigando en Google (incluye site:linkedin.com, site:empresa.com, filetype:pdf, y “nombrado”, “incorporación”, “CFO”).
+    const emailConfidence = (risk: string) => {
+        switch (risk) {
+            case 'Bajo':
+                return 'Alta';
+            case 'Medio':
+                return 'Media';
+            default:
+                return 'Baja';
+        }
+    };
 
-Datos de búsqueda:
-Empresa: ${profile.businessName}
-Ubicación: ${profile.city}`;
+    const possibleGroup = profile.businessName.toLowerCase().includes('grupo') || profile.businessName.toLowerCase().includes('group');
 
-    const perplexityUrl = `https://www.perplexity.ai/search?q=${encodeURIComponent(perplexityPrompt)}`;
+    const perplexityBase = `Empresa: ${profile.businessName}\nUbicación: ${profile.city}`;
+    const perplexityObjectives = [
+        {
+            id: 'decisor',
+            label: 'Encontrar decisor',
+            prompt: `Actúa como analista B2B. Identifica al decisor de pagos/TPV (CFO, Director/a Financiero/a, COO o Socio gestor). Devuelve nombre, cargo exacto, ciudad, periodo y enlaces con cita textual.\n\n${perplexityBase}`
+        },
+        {
+            id: 'tpv',
+            label: 'Detectar TPV actual',
+            prompt: `Investiga el TPV o sistema de pagos actual. Devuelve proveedor, evidencias y señales públicas (web, reseñas, ofertas laborales).\n\n${perplexityBase}`
+        },
+        {
+            id: 'dolor',
+            label: 'Detectar dolor operativo',
+            prompt: `Busca señales de dolor operativo (colas, cobros, caja, esperas, propinas). Devuelve citas y fuentes.\n\n${perplexityBase}`
+        },
+        {
+            id: 'banco',
+            label: 'Banco/adquirencia',
+            prompt: `Detecta banco adquirente o proveedor de pagos. Prioriza notas de prensa, TPV mostrado y pasarelas.\n\n${perplexityBase}`
+        }
+    ];
+
+    const insightsForEmail = [
+        `Gancho económico: ahorro estimado de ${profile.honeiAnalysis?.fitScore ? '250€/mes' : 'comisiones'} con multibanco.`,
+        `Prueba social: grupos similares en ${profile.city || 'tu zona'} con cierres automáticos.`,
+        `Dolor probable: ${profile.painPoints?.[0] || 'esperas en barra y cierre de caja manual'}.`
+    ];
 
     return (
         <div className="px-6 py-10 space-y-12 animate-fade-in max-w-5xl mx-auto overflow-x-hidden">
-            {/* SECCIÓN 1: VALORACIÓN DEL SERVICIO (ROI) */}
+            {/* SECCIÓN 1: SCORING */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
                     <span className="mono-label text-accent font-bold text-[8px] leading-none">SCORE</span>
                 </div>
-                <div className="flex-1">
+                <div className="flex-1 space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="flat-card p-4 border border-neutral-100 shadow-sm">
-                            <span className="mono-label text-[7px] mb-2 block text-accent font-bold">VALORACIÓN HONEI</span>
+                            <span className="mono-label text-[7px] mb-2 block text-accent font-bold">MATCH HONEI</span>
                             <div className="flex items-baseline gap-2">
                                 <h2 className="text-2xl font-extrabold tracking-tighter">{profile.honeiAnalysis?.fitScore || 0}%</h2>
                                 <span className="text-[8px] font-black uppercase text-green-600">[{profile.honeiAnalysis?.fitLabel || 'PENDIENTE'}]</span>
@@ -81,14 +147,11 @@ Ubicación: ${profile.city}`;
                             </div>
                         </div>
                         <div className="flat-card p-4 border border-neutral-100 shadow-sm">
-                            <span className="mono-label text-[7px] mb-2 block text-accent font-bold">POTENCIAL AHORRO</span>
-                            <div className="flex items-baseline gap-1">
-                                <h2 className="text-2xl font-extrabold tracking-tighter">~250€</h2>
-                                <span className="text-[8px] font-bold text-neutral-400 uppercase">/Mes</span>
+                            <span className="mono-label text-[7px] mb-2 block text-accent font-bold">RECOMENDACIÓN</span>
+                            <div className="text-[11px] font-bold text-neutral-800 leading-relaxed">
+                                {recommendedAngle}
                             </div>
-                            <div className="mt-3 text-[10px] text-neutral-500 italic font-medium">
-                                Enrutamiento inteligente multibanco.
-                            </div>
+                            <div className="mt-3 text-[9px] text-neutral-400 uppercase">{nextStepMessage}</div>
                         </div>
                         <div className="flat-card p-4 border border-neutral-100 shadow-sm">
                             <span className="mono-label text-[7px] mb-2 block text-accent font-bold">PUNTOS CLAVE</span>
@@ -99,93 +162,145 @@ Ubicación: ${profile.city}`;
                             </div>
                         </div>
                     </div>
+
+                    <div className="border border-neutral-200 p-4 bg-neutral-50/40">
+                        <div className="text-[8px] font-bold uppercase tracking-[0.2em] text-neutral-500 mb-3">Subfactores explicados</div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {scoreFactors.map((factor) => (
+                                <div key={factor.label} className="flex items-center gap-4">
+                                    <div className="w-24 text-[9px] font-bold uppercase text-neutral-600">{factor.label}</div>
+                                    <div className="flex-1">
+                                        <div className="h-1.5 bg-neutral-200">
+                                            <div className="h-1.5 bg-black" style={{ width: `${factor.value}%` }}></div>
+                                        </div>
+                                        <div className="text-[8px] text-neutral-400 mt-1">{factor.detail}</div>
+                                    </div>
+                                    <div className="text-[10px] font-black">{factor.value}%</div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
                 </div>
             </div>
 
             {/* SECCIÓN 2: DECISION MAKERS */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none">PROPS</span>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none">DEC</span>
                 </div>
                 <div className="flex-1 space-y-4">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Identified Decision Makers</span>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Decisores detectados</span>
                     <div className="border border-neutral-200 overflow-hidden shadow-sm">
                         <table className="w-full text-left text-[10px]">
                             <thead className="bg-neutral-50 text-neutral-600 uppercase text-[7px] font-bold tracking-[0.1em] border-b border-neutral-200">
                                 <tr>
-                                    <th className="px-4 py-2 border-r border-neutral-100">Nombre Completo</th>
-                                    <th className="px-4 py-2 border-r border-neutral-100">Cargo / Responsabilidad</th>
-                                    <th className="px-4 py-2 text-center">Validación</th>
+                                    <th className="px-4 py-2 border-r border-neutral-100">Nombre</th>
+                                    <th className="px-4 py-2 border-r border-neutral-100">Cargo</th>
+                                    <th className="px-4 py-2 border-r border-neutral-100">Tipo</th>
+                                    <th className="px-4 py-2 border-r border-neutral-100">Confianza</th>
+                                    <th className="px-4 py-2">Fuente</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-neutral-100">
                                 {strategicContacts.length > 0 ? strategicContacts.map((contact, i) => (
-                                    <tr key={i} className="hover:bg-neutral-50/50">
+                                    <tr key={i} className="hover:bg-neutral-50/50 align-top">
                                         <td className="px-4 py-3 font-extrabold uppercase tracking-tight text-[10px]">{contact.name}</td>
-                                        <td className="px-4 py-3 border-r text-neutral-500 uppercase text-[9px]">{contact.role}</td>
-                                        <td className="px-4 py-3 text-center">
-                                            <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-sm ${contact.confidence === 'Alto' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                                        <td className="px-4 py-3 border-r text-neutral-500 uppercase text-[9px]">
+                                            <div>{contact.role}</div>
+                                            <div className="text-[8px] text-neutral-400 normal-case">{contact.relevance || contact.validity}</div>
+                                        </td>
+                                        <td className="px-4 py-3 border-r text-[8px] font-bold uppercase text-neutral-500">
+                                            {contact.area === 'Propiedad' ? 'Propietario' : contact.area === 'Operaciones' ? 'Operaciones' : contact.area}
+                                        </td>
+                                        <td className="px-4 py-3 border-r text-center">
+                                            <span className={`text-[7px] font-black uppercase px-1.5 py-0.5 rounded-sm ${contact.confidence === 'Alto' ? 'bg-green-50 text-green-700' : contact.confidence === 'Medio' ? 'bg-amber-50 text-amber-700' : 'bg-red-50 text-red-700'}`}>
                                                 {contact.confidence}
                                             </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-[8px]">
+                                            {contact.source?.startsWith('http') ? (
+                                                <a href={contact.source} target="_blank" rel="noopener noreferrer" className="text-black font-bold uppercase hover:underline">Ver fuente</a>
+                                            ) : (
+                                                <span className="text-neutral-400">{contact.source || 'Sin fuente'}</span>
+                                            )}
                                         </td>
                                     </tr>
                                 )) : (
                                     <tr>
-                                        <td colSpan={3} className="px-4 py-6 text-center text-neutral-400 italic">No se han identificado directivos en esta búsqueda.</td>
+                                        <td colSpan={5} className="px-4 py-6 text-center text-neutral-400 italic">No se han identificado decisores en esta búsqueda.</td>
                                     </tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
+                    {possibleGroup && (
+                        <div className="text-[9px] uppercase tracking-[0.2em] text-neutral-500">
+                            Posible grupo detectado · revisa locales relacionados y dominios compartidos.
+                        </div>
+                    )}
                 </div>
             </div>
 
-            {/* NUEVA SECCIÓN: PERPLEXITY SCAN */}
+            {/* SECCIÓN 3: PERPLEXITY BRIEF */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none">DEEP</span>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none">BRIEF</span>
                 </div>
                 <div className="flex-1 space-y-4">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Perplexity Deep Analysis Protocol</span>
-                    <div className="border border-neutral-200 p-6 bg-neutral-50/30 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-                        <div className="space-y-2">
-                            <h3 className="text-[11px] font-black uppercase tracking-tight text-neutral-800">Investigación Exhaustiva de CFO</h3>
-                            <p className="text-[9px] text-neutral-500 leading-relaxed max-w-lg">
-                                Si el motor Gemini no ha encontrado al CFO, inicia este protocolo de búsqueda profunda en Perplexity. El prompt maestro incluye búsquedas en BORME, LinkedIn y Webs Corporativas con verificación de 6 fuentes.
-                            </p>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Brief automático en Perplexity</span>
+                    <div className="border border-neutral-200 p-6 bg-neutral-50/30 shadow-sm space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            {perplexityObjectives.map((objective) => (
+                                <a
+                                    key={objective.id}
+                                    href={`https://www.perplexity.ai/search?q=${encodeURIComponent(objective.prompt)}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center justify-between gap-3 bg-white border border-neutral-200 px-4 py-3 hover:border-black transition-all"
+                                >
+                                    <div>
+                                        <div className="text-[9px] uppercase font-black">{objective.label}</div>
+                                        <div className="text-[8px] text-neutral-400">Prompt específico</div>
+                                    </div>
+                                    <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+                                </a>
+                            ))}
                         </div>
-                        <a 
-                            href={perplexityUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 flex items-center gap-3 bg-white border-2 border-black px-6 py-3 hover:bg-black hover:text-white transition-all group"
-                        >
-                            <span className="material-symbols-outlined text-[18px]">travel_explore</span>
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em]">Ejecutar Perplexity</span>
-                        </a>
+                        <div className="text-[9px] text-neutral-500">
+                            Resumen esperado: bullets con fuentes, fecha y nivel de confianza.
+                        </div>
+                        <div className="border border-neutral-200 p-3 bg-white">
+                            <div className="text-[9px] uppercase font-black mb-2">Insights para el email</div>
+                            <ul className="text-[9px] text-neutral-500 space-y-1 list-disc pl-4">
+                                {insightsForEmail.map((insight) => (
+                                    <li key={insight}>{insight}</li>
+                                ))}
+                            </ul>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* SECCIÓN 3: EMAILS */}
+            {/* SECCIÓN 4: EMAILS */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
                     <span className="mono-label text-accent font-bold text-[8px] leading-none">MAIL</span>
                 </div>
                 <div className="flex-1 space-y-4">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Contact Vectors & Email Patterns</span>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Emails verificados y patrones</span>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="border border-neutral-200 bg-white shadow-sm">
                             <div className="bg-neutral-50 px-4 py-2 border-b border-neutral-200 flex justify-between">
-                                <span className="mono-label text-[7px] font-bold">Verified / Suggested Emails</span>
-                                <span className="mono-label text-[7px]">Pattern analysis</span>
+                                <span className="mono-label text-[7px] font-bold">Emails sugeridos</span>
+                                <span className="mono-label text-[7px]">Confianza / verificación</span>
                             </div>
                             <div className="divide-y divide-neutral-100">
                                 {suggestedEmails.length > 0 ? suggestedEmails.map((email, i) => (
                                     <div key={i} className="px-4 py-2.5 flex items-center justify-between group">
                                         <div className="flex flex-col">
                                             <span className="text-[10px] font-mono font-bold text-accent">{email.email}</span>
-                                            <span className="text-[7px] text-neutral-400 uppercase tracking-tighter">{email.status} • {email.bounceRisk} Risk</span>
+                                            <span className="text-[7px] text-neutral-400 uppercase tracking-tighter">{email.status} • Riesgo {email.bounceRisk}</span>
+                                            <span className="text-[7px] text-neutral-400 uppercase tracking-tighter">Confianza {emailConfidence(email.bounceRisk)} • MX/SMTP pendiente</span>
                                         </div>
                                         <button 
                                             onClick={() => copyToClipboard(email.email, `mail-${i}`)}
@@ -195,39 +310,39 @@ Ubicación: ${profile.city}`;
                                         </button>
                                     </div>
                                 )) : (
-                                    <div className="px-4 py-4 text-[9px] text-neutral-400 italic">No emails detected.</div>
+                                    <div className="px-4 py-4 text-[9px] text-neutral-400 italic">No se han detectado emails.</div>
                                 )}
                             </div>
                         </div>
                         <div className="border border-neutral-200 p-4 bg-neutral-50/30 shadow-sm">
-                            <span className="mono-label text-[7px] mb-3 block opacity-60">Dominio Detectado</span>
+                            <span className="mono-label text-[7px] mb-3 block opacity-60">Dominio detectado</span>
                             <div className="text-[11px] font-mono font-bold border-b border-neutral-200 pb-2 mb-4">
                                 {profile.emailDomain || 'No identificado'}
                             </div>
-                            <span className="mono-label text-[7px] mb-2 block opacity-60">Notas OSINT de Contacto</span>
+                            <span className="mono-label text-[7px] mb-2 block opacity-60">Patrones recomendados</span>
                             <p className="text-[9px] text-neutral-500 leading-relaxed italic">
-                                {profile.osintNotes?.unverified || "Verificar mediante llamadas frías si el patrón {nombre}.{apellido} es válido para este dominio."}
+                                {profile.osintNotes?.unverified || 'Probar patrones {nombre}.{apellido} y {inicial}{apellido} y validar con MX/SMTP.'}
                             </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* SECCIÓN 4: DRAFT */}
+            {/* SECCIÓN 5: DRAFT */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
                     <span className="mono-label text-accent font-bold text-[8px] leading-none">DRAFT</span>
                 </div>
                 <div className="flex-1 space-y-4">
-                    <div className="flex justify-between items-center">
-                        <span className="mono-label text-accent font-bold text-[8px] leading-none">Honei Terminal Outreach</span>
-                        <div className="flex gap-2">
+                    <div className="flex flex-wrap justify-between items-center gap-4">
+                        <span className="mono-label text-accent font-bold text-[8px] leading-none">Borrador listo para Gmail</span>
+                        <div className="flex flex-wrap gap-2">
                              <button 
-                                onClick={() => copyToClipboard(emailBodyPlain, 'draft')}
+                                onClick={() => copyToClipboard(emailBodyNormal, 'draft')}
                                 className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest border border-neutral-200 px-3 py-1.5 hover:bg-black hover:text-white transition-all shadow-sm"
                             >
                                 <span className="material-symbols-outlined text-[12px]">{emailCopied['draft'] ? 'done' : 'content_copy'}</span>
-                                {emailCopied['draft'] ? 'Copied' : 'Copy Body'}
+                                {emailCopied['draft'] ? 'Copiado' : 'Copiar cuerpo'}
                             </button>
                             <a 
                                 href={gmailUrl}
@@ -236,35 +351,158 @@ Ubicación: ${profile.city}`;
                                 className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest bg-black text-white px-4 py-1.5 hover:bg-accent transition-all shadow-sm"
                             >
                                 <span className="material-symbols-outlined text-[12px]">send</span>
-                                Open Gmail
+                                Abrir Gmail
                             </a>
                         </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="border border-neutral-200 p-4 bg-neutral-50/50 shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Asuntos sugeridos</div>
+                            <ul className="text-[9px] text-neutral-600 space-y-1">
+                                <li>• {emailSubjectPrimary}</li>
+                                <li>• {emailSubjectAlt}</li>
+                            </ul>
+                        </div>
+                        <div className="border border-neutral-200 p-4 bg-neutral-50/50 shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Plantilla por vertical</div>
+                            <select
+                                value={templateVariant}
+                                onChange={(e) => setTemplateVariant(e.target.value)}
+                                className="w-full border border-neutral-200 px-2 py-1 text-[9px] font-bold uppercase"
+                            >
+                                {['Cafetería alta rotación', 'Restaurante premium', 'Grupo multi-local', 'Take-away'].map((option) => (
+                                    <option key={option} value={option}>{option}</option>
+                                ))}
+                            </select>
+                            <div className="mt-2 text-[8px] text-neutral-400">Seleccionada: {templateVariant}</div>
+                        </div>
+                        <div className="border border-neutral-200 p-4 bg-neutral-50/50 shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Tracking de estado</div>
+                            <div className="space-y-2 text-[9px] text-neutral-600">
+                                {([
+                                    { key: 'generated', label: 'Email generado' },
+                                    { key: 'opened', label: 'Abierto en Gmail' },
+                                    { key: 'sent', label: 'Enviado (manual)' }
+                                ] as const).map((step) => (
+                                    <label key={step.key} className="flex items-center gap-2">
+                                        <input
+                                            type="checkbox"
+                                            checked={emailWorkflow[step.key]}
+                                            onChange={(e) => setEmailWorkflow(prev => ({ ...prev, [step.key]: e.target.checked }))}
+                                        />
+                                        {step.label}
+                                    </label>
+                                ))}
+                            </div>
+                            <div className="mt-3 text-[8px] text-neutral-400 uppercase">
+                                Variante A/B: {abVariant}
+                            </div>
+                            <div className="flex gap-2 mt-2">
+                                {(['A', 'B'] as const).map((variant) => (
+                                    <button
+                                        key={variant}
+                                        type="button"
+                                        onClick={() => setAbVariant(variant)}
+                                        className={`px-2 py-1 text-[8px] font-bold uppercase border ${abVariant === variant ? 'bg-black text-white border-black' : 'border-neutral-200 text-neutral-500'}`}
+                                    >
+                                        {variant}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
                     <div className="border border-neutral-200 p-6 bg-neutral-50/50 shadow-sm">
-                        <div className="font-mono text-[10px] leading-relaxed text-neutral-700 whitespace-pre-wrap max-h-48 overflow-y-auto pr-4">
-                            {emailBodyPlain}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <div className="text-[9px] font-black uppercase mb-2">Versión corta (60-80 palabras)</div>
+                                <div className="font-mono text-[10px] leading-relaxed text-neutral-700 whitespace-pre-wrap max-h-40 overflow-y-auto pr-4">
+                                    {emailBodyShort}
+                                </div>
+                            </div>
+                            <div>
+                                <div className="text-[9px] font-black uppercase mb-2">Versión normal</div>
+                                <div className="font-mono text-[10px] leading-relaxed text-neutral-700 whitespace-pre-wrap max-h-40 overflow-y-auto pr-4">
+                                    {emailBodyNormal}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* SECCIÓN 5: PRESENCIA */}
+            {/* SECCIÓN 6: INSIGHTS WOW */}
+            <div className="flex gap-8 items-baseline">
+                <div className="w-10 shrink-0">
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none">WOW</span>
+                </div>
+                <div className="flex-1 space-y-4">
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Insights operativos</span>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="border border-neutral-200 p-4 bg-white shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Barra y picos</div>
+                            <p className="text-[9px] text-neutral-500">
+                                Alta probabilidad de cuello de botella en barra durante picos. Recomendar terminal fijo + cierre automático.
+                            </p>
+                        </div>
+                        <div className="border border-neutral-200 p-4 bg-white shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Estimación de volumen</div>
+                            <p className="text-[9px] text-neutral-500">
+                                {profile.estimatedVolume || 'Volumen medio estimado'} · Ajusta propuesta comercial según capacidad.
+                            </p>
+                        </div>
+                        <div className="border border-neutral-200 p-4 bg-white shadow-sm">
+                            <div className="text-[9px] font-black uppercase mb-2">Guion de llamada</div>
+                            <p className="text-[9px] text-neutral-500">"Hola, soy David de Honei. Hemos visto que {profile.businessName} tiene picos de demanda; ayudamos a reducir colas y comisiones con TPV integrado. ¿Quién gestiona pagos y cierres?"</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* SECCIÓN 7: CUMPLIMIENTO */}
+            <div className="flex gap-8 items-baseline">
+                <div className="w-10 shrink-0">
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none">GDPR</span>
+                </div>
+                <div className="flex-1 space-y-4">
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Cumplimiento y base legal</span>
+                    <div className="border border-neutral-200 p-4 bg-neutral-50/30 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="text-[9px] font-black uppercase">Base legítima confirmada</div>
+                            <label className="flex items-center gap-2 text-[9px]">
+                                <input
+                                    type="checkbox"
+                                    checked={hasLegalBasis}
+                                    onChange={(e) => setHasLegalBasis(e.target.checked)}
+                                />
+                                Tengo base legítima
+                            </label>
+                        </div>
+                        <p className="text-[9px] text-neutral-500">
+                            Registra fuente, fecha y motivo de contacto. Si no hay base legítima, limita la personalización y usa plantilla consultiva.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* SECCIÓN 8: PRESENCIA */}
             <div className="flex gap-8 items-baseline">
                 <div className="w-10 shrink-0">
                     <span className="mono-label text-accent font-bold text-[8px] leading-none">PRES</span>
                 </div>
                 <div className="flex-1 space-y-4">
-                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Digital Presence & Social Profiles</span>
+                    <span className="mono-label text-accent font-bold text-[8px] leading-none block">Presencia digital y RRSS</span>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         <a 
-                            href={profile.googleSearchSources?.[0]?.uri || "#"}
+                            href={profile.googleSearchSources?.[0]?.uri || '#'}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="flat-card p-3 border border-neutral-100 flex items-center justify-between group shadow-sm"
                         >
                             <div className="flex flex-col truncate">
-                                <span className="text-[7px] font-bold text-neutral-400 uppercase">Website</span>
-                                <span className="text-[9px] font-bold truncate">Web Corporativa</span>
+                                <span className="text-[7px] font-bold text-neutral-400 uppercase">Web</span>
+                                <span className="text-[9px] font-bold truncate">Web corporativa</span>
                             </div>
                             <span className="material-symbols-outlined text-[14px] text-neutral-300 group-hover:text-black">open_in_new</span>
                         </a>
@@ -278,7 +516,7 @@ Ubicación: ${profile.city}`;
                             >
                                 <div className="flex flex-col truncate">
                                     <span className="text-[7px] font-bold text-neutral-400 uppercase">{social.platform}</span>
-                                    <span className="text-[9px] font-bold truncate">{social.handle || 'Visit Profile'}</span>
+                                    <span className="text-[9px] font-bold truncate">{social.handle || 'Ver perfil'}</span>
                                 </div>
                                 <span className="material-symbols-outlined text-[14px] text-neutral-300 group-hover:text-black">link</span>
                             </a>
@@ -287,7 +525,7 @@ Ubicación: ${profile.city}`;
                                 <div key={i} className="flat-card p-3 border border-neutral-100 bg-neutral-50/50 opacity-50 flex items-center justify-between shadow-sm">
                                     <div className="flex flex-col">
                                         <span className="text-[7px] font-bold text-neutral-400 uppercase">{platform}</span>
-                                        <span className="text-[9px] font-bold">Not Linked</span>
+                                        <span className="text-[9px] font-bold">No enlazado</span>
                                     </div>
                                     <span className="material-symbols-outlined text-[14px] text-neutral-200">link_off</span>
                                 </div>
@@ -303,7 +541,7 @@ Ubicación: ${profile.city}`;
                     className="group flex items-center gap-4 text-[8px] font-black uppercase tracking-[0.3em] text-neutral-400 hover:text-black transition-all duration-300"
                 >
                     <span className="material-symbols-outlined text-[14px] group-hover:rotate-180 transition-transform duration-700">refresh</span>
-                    RELOAD_SYSTEM_FOR_NEW_TARGET
+                    Nuevo objetivo
                 </button>
             </div>
             <div className="h-20"></div>
