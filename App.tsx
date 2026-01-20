@@ -13,7 +13,6 @@ const App: React.FC = () => {
     const [businessProfile, setBusinessProfile] = useState<BusinessProfile | null>(null);
     const [history, setHistory] = useState<BusinessProfile[]>([]);
     const [view, setView] = useState<'form' | 'results' | 'history'>('form');
-    const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
 
     useEffect(() => {
         const savedHistory = localStorage.getItem('hap_audit_history');
@@ -26,19 +25,11 @@ const App: React.FC = () => {
         localStorage.setItem('hap_audit_history', JSON.stringify(history));
     }, [history]);
 
-    const normalizeProfile = (profile: BusinessProfile): BusinessProfile => ({
-        ...profile,
-        crmStatus: profile.crmStatus ?? 'Nuevo',
-        nextAction: profile.nextAction ?? 'Generar email',
-        notes: profile.notes ?? '',
-        outreachStatus: profile.outreachStatus ?? 'Pendiente'
-    });
-
     const handleSearch = async (name: string, location: string) => {
         setIsLoading(true);
         setError(null);
         try {
-            const profile = normalizeProfile(await fetchBusinessProfile(name, location));
+            const profile = await fetchBusinessProfile(name, location);
             setBusinessProfile(profile);
             setHistory(prev => {
                 const filtered = prev.filter(p => !(p.businessName === profile.businessName && p.city === profile.city));
@@ -52,41 +43,6 @@ const App: React.FC = () => {
             setIsLoading(false);
         }
     };
-
-    const handleBatchSearch = async (entries: { name: string; city?: string }[], fallbackCity: string) => {
-        setIsLoading(true);
-        setError(null);
-        setBatchProgress({ current: 0, total: entries.length });
-        try {
-            for (let i = 0; i < entries.length; i++) {
-                const entry = entries[i];
-                const resolvedCity = entry.city || fallbackCity || 'España';
-                const profile = normalizeProfile(await fetchBusinessProfile(entry.name, resolvedCity));
-                setHistory(prev => {
-                    const filtered = prev.filter(p => !(p.businessName === profile.businessName && p.city === profile.city));
-                    return [profile, ...filtered].slice(0, 20);
-                });
-                setBatchProgress({ current: i + 1, total: entries.length });
-            }
-            setView('history');
-        } catch (e: any) {
-            setError(e.message || 'Error al procesar el lote.');
-            setView('form');
-        } finally {
-            setIsLoading(false);
-            setBatchProgress(null);
-        }
-    };
-
-    const handleUpdateHistory = (index: number, updates: Partial<BusinessProfile>) => {
-        setHistory(prev => prev.map((item, idx) => (idx === index ? { ...item, ...updates } : item)));
-    };
-
-    const recentSuggestions = history.slice(0, 5).map(item => ({
-        label: `${item.businessName} — ${item.city}`,
-        name: item.businessName,
-        city: item.city
-    }));
 
     // Estilo para el fondo degradado artístico (Nexus Aesthetic)
     const backgroundStyle = {
@@ -119,41 +75,32 @@ const App: React.FC = () => {
                 </div>
                 <div className="flex-1 overflow-y-auto py-8 px-4 flex flex-col gap-8">
                     <div className="space-y-1">
-                        <span className="mono-label px-2 mb-2 block text-[9px]">Panel</span>
+                        <span className="mono-label px-2 mb-2 block text-[9px]">Scope</span>
                         <button 
                             onClick={() => setView('form')}
                             className={`flex w-full items-center gap-3 px-2 py-2 text-sm font-semibold transition-colors ${view === 'form' ? 'text-black bg-neutral-surface' : 'text-neutral-500 hover:text-black hover:bg-neutral-surface'}`}
                         >
                             <span className="material-symbols-outlined text-[18px]">explore</span>
-                            <span>Buscar objetivo</span>
+                            <span>Target Search</span>
                         </button>
                         <button 
                             onClick={() => setView('history')}
                             className={`flex w-full items-center gap-3 px-2 py-2 text-sm font-semibold transition-colors ${view === 'history' ? 'text-black bg-neutral-surface' : 'text-neutral-500 hover:text-black hover:bg-neutral-surface'}`}
                         >
                             <span className="material-symbols-outlined text-[18px]">history</span>
-                            <span>Historial</span>
+                            <span>Audit Log</span>
                         </button>
                     </div>
                     <div>
-                        <span className="mono-label px-2 mb-2 block text-[9px]">Búsquedas recientes</span>
+                        <span className="mono-label px-2 mb-2 block text-[9px]">Recent Targets</span>
                         <div className="space-y-1">
                             {history.slice(0, 8).map((p, i) => (
                                 <button 
                                     key={i}
                                     onClick={() => { setBusinessProfile(p); setView('results'); }}
-                                    className="w-full text-left px-2 py-2 text-xs font-medium text-neutral-400 hover:text-black hover:bg-neutral-surface rounded-sm"
+                                    className="w-full text-left px-2 py-1.5 text-xs font-medium text-neutral-400 hover:text-black hover:bg-neutral-surface truncate rounded-sm uppercase tracking-tighter"
                                 >
-                                    <div className="truncate font-bold uppercase tracking-tighter">{p.businessName}</div>
-                                    <div className="flex flex-wrap gap-2 text-[9px] uppercase tracking-widest text-neutral-400">
-                                        <span>{p.estimatedVolume || 'Volumen N/D'}</span>
-                                        <span>•</span>
-                                        <span>{p.operationalInfo?.menuType || 'Tipo N/D'}</span>
-                                        <span>•</span>
-                                        <span>{p.strategicContacts?.[0]?.role || 'Decisor N/D'}</span>
-                                        <span>•</span>
-                                        <span>{p.outreachStatus || 'Pendiente'}</span>
-                                    </div>
+                                    {p.businessName}
                                 </button>
                             ))}
                         </div>
@@ -171,14 +118,14 @@ const App: React.FC = () => {
             <main className={`flex-1 flex flex-col min-w-0 overflow-hidden relative ${mainBgClass}`}>
                 <header className="h-14 flex items-center justify-between px-8 border-b structural-line bg-white/90 backdrop-blur shrink-0 z-30">
                     <div className="flex items-center gap-4">
-                        <span className="mono-label text-[9px]">Nexus / Inteligencia</span>
+                        <span className="mono-label text-[9px]">Nexus / Intelligence</span>
                         <div className="h-4 w-px bg-neutral-200"></div>
                         <h1 className="text-sm font-bold truncate uppercase tracking-tight">
-                            {view === 'results' && businessProfile ? businessProfile.businessName : 'Centro de mando'}
+                            {view === 'results' && businessProfile ? businessProfile.businessName : 'Command Center'}
                         </h1>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className="mono-label text-[9px] hover:text-black transition-colors">Exportar dossier</button>
+                        <button className="mono-label text-[9px] hover:text-black transition-colors">Export_Dossier</button>
                         <button className="flex items-center justify-center size-8 border structural-line hover:border-black transition-colors">
                             <span className="material-symbols-outlined text-[18px]">share</span>
                         </button>
@@ -195,13 +142,7 @@ const App: React.FC = () => {
                         {view === 'form' && !isLoading && (
                             <div className="h-full flex items-center justify-center p-8">
                                 <div className="w-full max-w-xl bg-white p-12 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.5)] border border-white/10">
-                                    <BusinessInputForm
-                                        onSearch={handleSearch}
-                                        onBatchSearch={handleBatchSearch}
-                                        isLoading={isLoading}
-                                        recentSuggestions={recentSuggestions}
-                                        batchProgress={batchProgress}
-                                    />
+                                    <BusinessInputForm onSearch={handleSearch} isLoading={isLoading} />
                                     {error && (
                                         <div className="mt-12 p-6 border border-black bg-white text-black font-mono text-[10px] tracking-widest uppercase">
                                             [LOG_FAILURE]: {error}
@@ -227,7 +168,6 @@ const App: React.FC = () => {
                                     items={history} 
                                     onSelect={(p) => { setBusinessProfile(p); setView('results'); }} 
                                     onDelete={(i) => setHistory(prev => prev.filter((_, idx) => idx !== i))}
-                                    onUpdate={(index, updates) => handleUpdateHistory(index, updates)}
                                     onBack={() => setView('form')}
                                 />
                             </div>
@@ -239,7 +179,7 @@ const App: React.FC = () => {
             {/* Sidebar Derecha - Verificación de Fuentes */}
             <aside className="w-72 border-l structural-line hidden xl:flex flex-col bg-neutral-surface">
                 <div className="h-14 flex items-center px-6 border-b structural-line bg-white">
-                    <span className="mono-label text-[9px]">Evidencia verificada</span>
+                    <span className="mono-label text-[9px]">Verified_Evidence</span>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {businessProfile?.googleSearchSources?.length ? (
@@ -261,13 +201,13 @@ const App: React.FC = () => {
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 gap-3">
                             <span className="material-symbols-outlined text-neutral-200 text-3xl">database</span>
-                            <p className="mono-label opacity-40 text-[8px]">Esperando búsqueda</p>
+                            <p className="mono-label opacity-40 text-[8px]">Awaiting Scan</p>
                         </div>
                     )}
                 </div>
                 <div className="p-4 border-t structural-line bg-white">
                     <button className="w-full py-2 border border-black font-black text-[7px] uppercase tracking-[0.2em] hover:bg-black hover:text-white transition-all">
-                        Subir datos locales
+                        Upload_Local_Data
                     </button>
                 </div>
             </aside>

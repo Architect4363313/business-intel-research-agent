@@ -11,23 +11,14 @@ if (!API_KEY) {
 const ai = new GoogleGenAI({ apiKey: API_KEY });
 
 export const fetchBusinessProfile = async (businessName: string, city: string): Promise<BusinessProfile> => {
-    const systemInstruction = `Actúa como analista OSINT B2B especializado en hostelería (España). Tu objetivo es identificar DECISION MAKERS y CANALES DE CONTACTO de empresas de restauración para vender "Honei Terminal" (Datáfono integrado), usando únicamente fuentes públicas y citando siempre la fuente.
+    const systemInstruction = `Actúa como analista OSINT B2B especializado en hostelería (España). Tu objetivo es identificar DECISION MAKERS y DETALLES OPERATIVOS de empresas de restauración para vender "Honei Terminal".
 
-REGLAS DE CUMPLIMIENTO (OBLIGATORIAS):
-- Solo datos públicos. Prioriza precisión sobre completitud.
-- Si infieres un patrón de email, márcalo como "Inferido" y explica la evidencia.
-- Verifica vigencia: roles actuales o de los últimos 24 meses.
-- FOCO HONEI TERMINAL: El producto resuelve descuadres de caja, ahorra 3h/día en cierres, ahorra comisiones (~250€/mes) vía enrutamiento inteligente multibanco, y aumenta propinas (+150%).
+REGLAS DE CUMPLIMIENTO:
+- Solo datos públicos. Prioriza precisión.
+- FOCO OPERATIVO: Es crítico identificar el tipo de cocina, si tienen terraza, si aceptan reservas y si aceptan American Express.
+- FOCO TECH: Identifica herramientas que usen (TPV, sistemas de reserva como TheFork/CoverManager, delivery como Glovo/Uber).
 
-TAREA A - DECISION MAKERS:
-Identifica 2-5 personas clave (CFO, Director Financiero, Controller, COO, Gerente).
-Para cada uno define: Nombre, Cargo, Área, Motivo relevancia (pagos/TPV), Vigencia, Confianza y Fuente.
-
-TAREA B - CANALES DE CONTACTO:
-Identifica emails corporativos. Si no hay directos, infiere patrón con evidencia de emails genéricos publicados.
-Diferencia entre "Público" e "Inferido". Calcula riesgo de rebote.
-
-ESTRUCTURA JSON REQUERIDA (OBLIGATORIO RESPETAR NOMBRES DE CAMPOS):
+ESTRUCTURA JSON REQUERIDA:
 {
   "businessName": "string",
   "city": "string",
@@ -48,20 +39,27 @@ ESTRUCTURA JSON REQUERIDA (OBLIGATORIO RESPETAR NOMBRES DE CAMPOS):
   "suggestedEmails": [{ "email": "string", "status": "Público" | "Inferido", "source": "string", "bounceRisk": "Bajo" | "Medio" | "Alto" }],
   "contactChannels": [{ "type": "string", "data": "string", "status": "Público" | "Inferido", "source": "string" }],
   "techStack": [{ "category": "string", "provider": "string" }],
-  "operationalInfo": { "menuType": "string", "orderingSystem": "string", "paymentMethods": ["string"] },
+  "operationalInfo": { 
+    "menuType": "string", 
+    "orderingSystem": "string", 
+    "paymentMethods": ["string"],
+    "terrace": boolean,
+    "reservations": boolean,
+    "amex": boolean
+  },
   "swot": { "strengths": [], "weaknesses": [], "opportunities": [], "threats": [] },
   "estimatedVolume": "string",
   "painPoints": ["string"],
   "honeiAnalysis": { 
     "fitScore": number, 
     "fitLabel": "Muy Alta" | "Alta" | "Media" | "Baja", 
-    "executiveSummary": "Resumen ejecutivo de 3-5 líneas sobre quién decide y qué canal es fiable.",
-    "reasoning": "Tesis financiera para el CFO.",
-    "matchedFeatures": ["Cero Descuadres", "Multibanco", "Cierre automático", "Propinas", "División Cuentas"]
+    "executiveSummary": "string",
+    "reasoning": "string",
+    "matchedFeatures": ["string"]
   },
   "osintNotes": {
-    "unverified": "Qué no se pudo verificar",
-    "verificationSteps": "Pasos para confirmar"
+    "unverified": "string",
+    "verificationSteps": "string"
   }
 }`;
     
@@ -70,10 +68,9 @@ ESTRUCTURA JSON REQUERIDA (OBLIGATORIO RESPETAR NOMBRES DE CAMPOS):
 - Ciudad: ${city}
 
 Búsquedas obligatorias:
-1. "Aviso legal ${businessName}" o "Política privacidad ${businessName}" para datos fiscales y emails de administración.
-2. "CFO ${businessName}", "Director Financiero ${businessName}", "Gerente ${businessName}" en LinkedIn y prensa.
-3. Patrones de email en sitios como "RocketReach", "Hunter" o menciones públicas.
-4. "Honei Terminal" vs TPV actual: Identifica el TPV si es posible.`;
+1. Detalles operativos: ¿Qué tipo de comida sirven? ¿Tienen terraza? ¿Aceptan reservas (TheFork, web propia)? ¿Aceptan American Express (verificar en web o reseñas)?
+2. Decision Makers: CFO, Gerente, Propietario.
+3. Herramientas: ¿Qué TPV usan? ¿Qué software de gestión se menciona en ofertas de empleo o artículos técnicos?`;
 
     try {
         const response = await ai.models.generateContent({
@@ -101,6 +98,6 @@ Búsquedas obligatorias:
         return parsedData as BusinessProfile;
     } catch (error) {
         console.error("Gemini Error:", error);
-        throw new Error("La investigación OSINT ha fallado o no ha devuelto un formato válido. Reintente.");
+        throw new Error("La investigación OSINT ha fallado. Reintente.");
     }
 };

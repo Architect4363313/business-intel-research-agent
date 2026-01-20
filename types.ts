@@ -55,6 +55,9 @@ export interface OperationalInfo {
     orderingSystem: string;
     paymentMethods: string[];
     digitalMenuUrl?: string;
+    terrace: boolean;
+    reservations: boolean;
+    amex: boolean;
 }
 
 export interface SwotAnalysis {
@@ -110,8 +113,4 @@ export interface BusinessProfile {
       uri: string;
       title: string;
   }[];
-  crmStatus?: 'Nuevo' | 'Cualificado' | 'Contactado' | 'Respuesta' | 'Descartado';
-  nextAction?: string;
-  notes?: string;
-  outreachStatus?: 'Pendiente' | 'Email generado' | 'Enviado';
 }
