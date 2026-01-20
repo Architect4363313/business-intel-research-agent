@@ -1,0 +1,72 @@
+
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HAP - Honei Audit Profile</title>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              "primary": "#000000",
+              "accent": "#120a8f", // Ultramarine Blue adaptado al estilo Nexus
+              "neutral-border": "#e5e7eb",
+              "neutral-surface": "#fafafa",
+            },
+            fontFamily: {
+              "sans": ["Inter", "sans-serif"],
+              "mono": ["JetBrains Mono", "monospace"]
+            },
+          },
+        },
+      }
+    </script>
+    <style type="text/tailwindcss">
+      @layer base {
+        body {
+          @apply bg-white text-black font-sans antialiased;
+        }
+      }
+      .structural-line {
+        @apply border-neutral-border border-opacity-60;
+      }
+      .mono-label {
+        @apply font-mono text-[10px] tracking-widest uppercase text-neutral-500 font-medium;
+      }
+      .flat-card {
+        @apply border border-neutral-border bg-white transition-colors duration-200;
+      }
+      .flat-card:hover {
+        @apply border-black;
+      }
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        @apply bg-transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        @apply bg-neutral-200 rounded-full;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1"
+  }
+}
+</script>
+</head>
+  <body class="h-screen flex overflow-hidden">
+    <div id="root" class="flex flex-1 overflow-hidden"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
