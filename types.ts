@@ -110,4 +110,8 @@ export interface BusinessProfile {
       uri: string;
       title: string;
   }[];
+  crmStatus?: 'Nuevo' | 'Cualificado' | 'Contactado' | 'Respuesta' | 'Descartado';
+  nextAction?: string;
+  notes?: string;
+  outreachStatus?: 'Pendiente' | 'Email generado' | 'Enviado';
 }
