@@ -5,7 +5,7 @@ import type { BusinessProfile } from "../types";
 const API_KEY = process.env.API_KEY;
 
 if (!API_KEY) {
-  throw new Error("API_KEY environment variable not set");
+  throw new Error("GEMINI_API_KEY no está configurada. Por favor, añade tu API key en el archivo .env.local");
 }
 
 const ai = new GoogleGenAI({ apiKey: API_KEY });
@@ -99,8 +99,21 @@ Búsquedas obligatorias:
             .filter(web => web?.uri && web?.title) || [];
 
         return parsedData as BusinessProfile;
-    } catch (error) {
+    } catch (error: any) {
         console.error("Gemini Error:", error);
-        throw new Error("La investigación OSINT ha fallado o no ha devuelto un formato válido. Reintente.");
+
+        if (error?.message?.includes('API key')) {
+            throw new Error("Error de autenticación: Verifica tu GEMINI_API_KEY en .env.local");
+        }
+
+        if (error?.message?.includes('quota') || error?.message?.includes('limit')) {
+            throw new Error("Límite de cuota de API alcanzado. Espera unos minutos e inténtalo de nuevo.");
+        }
+
+        if (error?.message?.includes('network') || error?.message?.includes('fetch')) {
+            throw new Error("Error de conexión. Verifica tu conexión a internet.");
+        }
+
+        throw new Error(`Error OSINT: ${error?.message || 'Formato de respuesta inválido. Reintenta.'}`);
     }
 };

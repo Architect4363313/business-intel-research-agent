@@ -108,8 +108,10 @@ const App: React.FC = () => {
                 </div>
                 <div className="p-4 border-t structural-line">
                     <div className="flex w-full items-center gap-3 p-2">
-                        <div className="size-6 bg-black flex items-center justify-center text-[10px] text-white font-bold rounded-sm">DP</div>
-                        <span className="text-xs font-bold truncate">DAVID PRADO</span>
+                        <div className="size-6 bg-black flex items-center justify-center text-[10px] text-white font-bold rounded-sm">
+                            {(import.meta.env.VITE_USER_NAME || 'USER')[0]}
+                        </div>
+                        <span className="text-xs font-bold truncate">{import.meta.env.VITE_USER_NAME || 'ANALYST'}</span>
                     </div>
                 </div>
             </aside>
@@ -125,10 +127,9 @@ const App: React.FC = () => {
                         </h1>
                     </div>
                     <div className="flex items-center gap-4">
-                        <button className="mono-label text-[9px] hover:text-black transition-colors">Export_Dossier</button>
-                        <button className="flex items-center justify-center size-8 border structural-line hover:border-black transition-colors">
-                            <span className="material-symbols-outlined text-[18px]">share</span>
-                        </button>
+                        <span className="mono-label text-[9px] text-neutral-400">
+                            {view === 'results' && businessProfile ? 'Ready' : 'Standby'}
+                        </span>
                     </div>
                 </header>
 
@@ -206,9 +207,11 @@ const App: React.FC = () => {
                     )}
                 </div>
                 <div className="p-4 border-t structural-line bg-white">
-                    <button className="w-full py-2 border border-black font-black text-[7px] uppercase tracking-[0.2em] hover:bg-black hover:text-white transition-all">
-                        Upload_Local_Data
-                    </button>
+                    <div className="text-center">
+                        <span className="mono-label text-[7px] text-neutral-400">
+                            {businessProfile?.googleSearchSources?.length || 0} Sources
+                        </span>
+                    </div>
                 </div>
             </aside>
         </div>

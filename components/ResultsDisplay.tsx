@@ -15,9 +15,10 @@ const ResultsDisplay: React.FC<{ profile: BusinessProfile, onNewSearch: () => vo
     const honeiUrl = "https://www.honei.app/servicios/honei-terminal";
     const emailSubject = `Optimización de cobros y TPV - Honei`;
     
+    const senderName = import.meta.env.VITE_USER_NAME || 'el equipo de Honei';
     const emailBodyPlain = `Hola ${ownerName},
 
-Soy David Prado, de Honei (${honeiUrl}). He seguido vuestra trayectoria y me gustaría comentaros cómo estamos ayudando a otros grupos similares a optimizar su operativa de cobro.
+Soy ${senderName}, de Honei (${honeiUrl}). He seguido vuestra trayectoria y me gustaría comentaros cómo estamos ayudando a otros grupos similares a optimizar su operativa de cobro.
 
 Trabajo con directivos financieros ayudándoles a eliminar descuadres de caja y reducir costes bancarios mediante la integración total del datáfono con el TPV (Honei Terminal).
 

@@ -12,9 +12,24 @@ const BusinessInputForm: React.FC<BusinessInputFormProps> = ({ onSearch, isLoadi
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        if (businessName.trim() && city.trim()) {
-            onSearch(businessName.trim(), city.trim());
+        const trimmedName = businessName.trim();
+        const trimmedCity = city.trim();
+
+        if (!trimmedName || !trimmedCity) {
+            return;
         }
+
+        if (trimmedName.length < 2) {
+            alert('El nombre del negocio debe tener al menos 2 caracteres');
+            return;
+        }
+
+        if (trimmedCity.length < 2) {
+            alert('La ciudad debe tener al menos 2 caracteres');
+            return;
+        }
+
+        onSearch(trimmedName, trimmedCity);
     };
 
     return (
