@@ -1,9 +1,18 @@
-export default async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { businessName, city } = req.body;
+  let body = req.body;
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body);
+    } catch {
+      return res.status(400).json({ error: 'Invalid JSON body' });
+    }
+  }
+
+  const { businessName, city } = body || {};
 
   if (!businessName || !city) {
     return res.status(400).json({ error: 'businessName and city are required' });
@@ -85,15 +94,13 @@ Búsquedas obligatorias:
       },
       body: JSON.stringify({
         systemInstruction: {
-          parts: {
-            text: systemInstruction,
-          },
+          parts: [{ text: systemInstruction }],
         },
-        contents: {
-          parts: {
-            text: prompt,
+        contents: [
+          {
+            parts: [{ text: prompt }],
           },
-        },
+        ],
         tools: [
           {
             googleSearch: {},
@@ -141,4 +148,4 @@ Búsquedas obligatorias:
     console.error('Business Profile Error:', error);
     return res.status(500).json({ error: 'Failed to generate business profile', message: error.message });
   }
-};
+}
