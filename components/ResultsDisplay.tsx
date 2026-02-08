@@ -1,10 +1,17 @@
 
 import React, { useState } from 'react';
-import type { BusinessProfile } from '../types';
+import type { BusinessProfile, EmailVerificationResult, EmailVerificationState } from '../types';
 
 const ResultsDisplay: React.FC<{ profile: BusinessProfile, onNewSearch: () => void; }> = ({ profile, onNewSearch }) => {
     const [emailCopied, setEmailCopied] = useState<{ [key: string]: boolean }>({});
-    
+    const [emailVerification, setEmailVerification] = useState<EmailVerificationState>({
+      status: 'idle',
+      email: null,
+      result: null,
+      loading: false,
+      error: null
+    });
+
     const strategicContacts = profile.strategicContacts || [];
     const suggestedEmails = profile.suggestedEmails || [];
     const socialMedia = profile.socialMedia || [];
@@ -64,6 +71,33 @@ Empresa: ${profile.businessName}
 Ubicación: ${profile.city}`;
 
     const perplexityUrl = `https://www.perplexity.ai/search?q=${encodeURIComponent(perplexityPrompt)}`;
+
+    const handleVerifyEmail = async (email: string) => {
+      setEmailVerification(prev => ({ ...prev, loading: true, status: 'idle', error: null }));
+      try {
+        const response = await fetch('/api/verify-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data: EmailVerificationResult = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Verification failed');
+        setEmailVerification({
+          status: data.verified ? 'verified' : 'unverified',
+          email: data.email,
+          result: data,
+          loading: false,
+          error: null
+        });
+      } catch (error) {
+        setEmailVerification(prev => ({
+          ...prev,
+          status: 'error',
+          loading: false,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        }));
+      }
+    };
 
     return (
         <div className="px-6 py-10 space-y-12 animate-fade-in max-w-5xl mx-auto overflow-x-hidden">
@@ -235,6 +269,42 @@ Ubicación: ${profile.city}`;
                             <p className="text-[9px] text-neutral-500 leading-relaxed italic">
                                 {profile.osintNotes?.unverified || "Verificar patrones {nombre}.{apellido} para este dominio."}
                             </p>
+                            <div className="verify-email-section mt-4 pt-3 border-t border-neutral-100">
+                              <button
+                                onClick={() => {
+                                  const email = profile.directContacts?.email || suggestedEmails[0]?.email || '';
+                                  if (email) {
+                                    handleVerifyEmail(email);
+                                  } else {
+                                    setEmailVerification({
+                                      status: 'error',
+                                      email: null,
+                                      result: null,
+                                      loading: false,
+                                      error: 'No email found to verify'
+                                    });
+                                  }
+                                }}
+                                disabled={emailVerification.loading}
+                                className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest border border-neutral-200 px-3 py-1.5 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {emailVerification.loading ? 'Verifying...' : 'VERIFY_EMAIL'}
+                              </button>
+
+                              {emailVerification.status !== 'idle' && (
+                                <div className={`verification-indicator mt-2 text-[9px] font-bold`}>
+                                  {emailVerification.status === 'verified' && (
+                                    <span style={{ color: 'green' }}>&#10003; Email Verified</span>
+                                  )}
+                                  {emailVerification.status === 'unverified' && (
+                                    <span style={{ color: 'red' }}>&#10007; Email Unverified</span>
+                                  )}
+                                  {emailVerification.status === 'error' && (
+                                    <span style={{ color: 'orange' }}>&#9888; {emailVerification.error}</span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
                         </div>
                     </div>
                 </div>
