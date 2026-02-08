@@ -272,10 +272,21 @@ Ubicación: ${profile.city}`;
                             <div className="verify-email-section mt-4 pt-3 border-t border-neutral-100">
                               <button
                                 onClick={() => {
-                                  const email = profile.directContacts?.email || '';
-                                  if (email) handleVerifyEmail(email);
+                                  const email = profile.directContacts?.email || suggestedEmails[0]?.email || '';
+                                  if (email) {
+                                    handleVerifyEmail(email);
+                                  } else {
+                                    setEmailVerification({
+                                      status: 'error',
+                                      email: null,
+                                      result: null,
+                                      loading: false,
+                                      error: 'No email found to verify'
+                                    });
+                                  }
                                 }}
-                                className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest border border-neutral-200 px-3 py-1.5 hover:bg-black hover:text-white transition-all shadow-sm"
+                                disabled={emailVerification.loading}
+                                className="flex items-center gap-1.5 text-[8px] font-black uppercase tracking-widest border border-neutral-200 px-3 py-1.5 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 {emailVerification.loading ? 'Verifying...' : 'VERIFY_EMAIL'}
                               </button>
