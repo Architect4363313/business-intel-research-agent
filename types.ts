@@ -114,3 +114,19 @@ export interface BusinessProfile {
       title: string;
   }[];
 }
+
+export interface EmailVerificationResult {
+  email: string;
+  verified: boolean;
+  status: string;
+  statusDetail: string;
+  error?: string;
+}
+
+export interface EmailVerificationState {
+  status: 'idle' | 'verified' | 'unverified' | 'error';
+  email: string | null;
+  result: EmailVerificationResult | null;
+  loading: boolean;
+  error: string | null;
+}
